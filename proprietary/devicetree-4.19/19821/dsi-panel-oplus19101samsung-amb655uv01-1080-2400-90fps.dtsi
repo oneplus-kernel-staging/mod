@@ -3,7 +3,7 @@
 * Copyright (C) 2018-2020 Oplus. All rights reserved.
 */
 &mdss_mdp {
-	dsi_oppo19101samsung_amb655uv01_1080_2400_cmd: qcom,mdss_dsi_oppo19101samsung_amb655uv01_1080_2400_cmd {
+	dsi_oplus19101samsung_amb655uv01_1080_2400_cmd: qcom,mdss_dsi_oplus19101samsung_amb655uv01_1080_2400_cmd {
 		qcom,mdss-dsi-panel-name = "samsung fhd amoled";
 		qcom,mdss-dsi-panel-type = "dsi_cmd_mode";
 		qcom,mdss-dsi-virtual-channel-id = <0>;
@@ -74,6 +74,8 @@
 				qcom,mdss-dsi-panel-phy-timings = [00 22 05 09 25 23 09 09 06 03 04 00];
 				qcom,display-topology = <1 1 1>;
 				qcom,default-topology-index = <0>;
+				oplus,fod-on-vblank = <0>;
+				oplus,fod-off-vblank = <0>;
 				qcom,mdss-dsi-on-command = [
 					/* DSC Setting */
 					39 01 00 00 00 00 03 F0 5A 5A
@@ -374,6 +376,8 @@
 				qcom,mdss-dsi-panel-phy-timings = [00 22 05 09 25 23 09 09 06 03 04 00];
 				qcom,display-topology = <1 1 1>;
 				qcom,default-topology-index = <0>;
+				oplus,fod-on-vblank = <1>;
+				oplus,fod-off-vblank = <1>;
 				qcom,mdss-dsi-on-command = [
 					/* DSC Setting */
 					39 01 00 00 00 00 03 F0 5A 5A
@@ -654,7 +658,7 @@
 	};
 };
 
-&dsi_oppo19101samsung_amb655uv01_1080_2400_cmd {
+&dsi_oplus19101samsung_amb655uv01_1080_2400_cmd {
 	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
 	qcom,mdss-dsi-bl-pmic-control-type = "bl_ctrl_dcs";
 	qcom,mdss-dsi-bl-min-level = <1>;
