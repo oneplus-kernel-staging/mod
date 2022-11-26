@@ -92,8 +92,12 @@ extern bool oplus_pd_connected(void);
 #define INIT_WORK_OTHER_DELAY 1000
 #define AICL_POINT_VOL_9V 7600
 #define AICL_POINT_VOL_5V 4140
-#define HW_AICL_POINT_VOL_5V_PHASE1 4440
-#define HW_AICL_POINT_VOL_5V_PHASE2 4520
+#define AICL_POINT_VOL_5V_HIGH 4300
+#define AICL_POINT_VOL_5V_LOW  4140
+#define HW_AICL_POINT_VOL_5V_PHASE1 4400
+#define HW_AICL_POINT_VOL_5V_PHASE2 4500
+#define HW_AICL_POINT_VOL_5V_PHASE3 4600
+#define HW_AICL_POINT_VOL_5V_CHECK 4250
 #define SW_AICL_POINT_VOL_5V_PHASE1 4500
 #define SW_AICL_POINT_VOL_5V_PHASE2 4535
 #define UNIT_TRANS_1000 1000
@@ -1714,6 +1718,8 @@ static int sy6970_register_interrupt(struct device_node *np,struct sy6970 *bq)
 static int sy6970_init_device(struct sy6970 *bq)
 {
 	int ret = 0;
+	int vbatt = 0;
+	struct oplus_chg_chip *chip = g_oplus_chip;
 
 	sy6970_disable_watchdog_timer(bq);
 	bq->is_force_dpdm = false;
@@ -1754,7 +1760,17 @@ static int sy6970_init_device(struct sy6970 *bq)
 		pr_err("Failed to start adc, ret = %d\n", ret);
 
 
-	ret = sy6970_set_input_volt_limit(bq, HW_AICL_POINT_VOL_5V_PHASE1);
+	if (chip) {
+		vbatt = chip->batt_volt;
+	}
+
+	if (vbatt > AICL_POINT_VOL_5V_HIGH) {
+		ret = sy6970_set_input_volt_limit(bq, HW_AICL_POINT_VOL_5V_PHASE3);
+	} else if (vbatt > AICL_POINT_VOL_5V_LOW) {
+		ret = sy6970_set_input_volt_limit(bq, HW_AICL_POINT_VOL_5V_PHASE2);
+	} else {
+		ret = sy6970_set_input_volt_limit(bq, HW_AICL_POINT_VOL_5V_PHASE1);
+	}
 	if (ret)
 		pr_err("Failed to set input volt limit, ret = %d\n", ret);
 
@@ -2404,10 +2420,20 @@ void oplus_sy6970_set_mivr(int vbatt)
 {
 	int charger_vol = 0;
 	charger_vol = oplus_sy6970_get_vbus();
-	if (g_bq->hw_aicl_point == HW_AICL_POINT_VOL_5V_PHASE1 && vbatt > AICL_POINT_VOL_5V) {
-		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE2;
-	} else if (g_bq->hw_aicl_point == HW_AICL_POINT_VOL_5V_PHASE2 && vbatt < AICL_POINT_VOL_5V) {
-		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+	if (vbatt > AICL_POINT_VOL_5V_HIGH) {
+		if (g_bq->hw_aicl_point != HW_AICL_POINT_VOL_5V_PHASE3) {
+			g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE3;
+		}
+	} else if (vbatt > AICL_POINT_VOL_5V_LOW) {
+		if (g_bq->hw_aicl_point == HW_AICL_POINT_VOL_5V_PHASE3 && vbatt < HW_AICL_POINT_VOL_5V_CHECK) {
+			g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE2;
+		} else if (g_bq->hw_aicl_point == HW_AICL_POINT_VOL_5V_PHASE1) {
+			g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE2;
+		}
+	} else {
+		if (g_bq->hw_aicl_point != HW_AICL_POINT_VOL_5V_PHASE1) {
+			g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+		}
 	}
 
 	sy6970_set_input_volt_limit(g_bq, g_bq->hw_aicl_point);
@@ -2433,12 +2459,12 @@ void oplus_sy6970_set_mivr_by_battery_vol(void)
 		vbatt = chip->batt_volt;
 	}
 
-	if (vbatt > SY6970_VINDPM_VBAT_PHASE1){
-		mV = vbatt + SY6970_VINDPM_THRES_PHASE1;
-	} else if (vbatt > SY6970_VINDPM_VBAT_PHASE2){
-		mV = vbatt + SY6970_VINDPM_THRES_PHASE2;
+	if (vbatt > AICL_POINT_VOL_5V_HIGH) {
+		mV = HW_AICL_POINT_VOL_5V_PHASE3;
+	} else if (vbatt > AICL_POINT_VOL_5V_LOW) {
+		mV = HW_AICL_POINT_VOL_5V_PHASE2;
 	} else {
-		mV = vbatt + SY6970_VINDPM_THRES_PHASE3;
+		mV = HW_AICL_POINT_VOL_5V_PHASE1;
 	}
 
 	if (mV < SY6970_VINDPM_THRES_MIN) {
@@ -2675,11 +2701,25 @@ int oplus_sy6970_charging_enable(void)
 
 int oplus_sy6970_charging_disable(void)
 {
+	int vbatt = 0;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
 	chg_info(" disable");
+
+	if (chip) {
+		vbatt = chip->batt_volt;
+	}
 
 	sy6970_disable_watchdog_timer(g_bq);
 	g_bq->pre_current_ma = -1;
-	g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+
+	if (vbatt > AICL_POINT_VOL_5V_HIGH) {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE3;
+	} else if (vbatt > AICL_POINT_VOL_5V_LOW) {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE2;
+	} else {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+	}
 	sy6970_set_input_volt_limit(g_bq, g_bq->hw_aicl_point);
 
 	return sy6970_disable_charger(g_bq);
@@ -2688,10 +2728,22 @@ int oplus_sy6970_charging_disable(void)
 int oplus_sy6970_hardware_init(void)
 {
 	int ret = 0;
+	int vbatt = 0;
+	struct oplus_chg_chip *chip = g_oplus_chip;
+
+	if (chip) {
+		vbatt = chip->batt_volt;
+	}
 
 	chg_info(" init ");
 
-	g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+	if (vbatt > AICL_POINT_VOL_5V_HIGH) {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE3;
+	} else if (vbatt > AICL_POINT_VOL_5V_LOW) {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE2;
+	} else {
+		g_bq->hw_aicl_point = HW_AICL_POINT_VOL_5V_PHASE1;
+	}
 	sy6970_set_input_volt_limit(g_bq, g_bq->hw_aicl_point);
 
 	if (atomic_read(&g_bq->charger_suspended) == 1) {

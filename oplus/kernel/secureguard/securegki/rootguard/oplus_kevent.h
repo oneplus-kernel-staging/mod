@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /**************************************************************
 * Copyright (c)  2008- 2030  OPLUS Mobile communication Corp.ltd All rights reserved.
+* VENDOR_EDIT
 * File       : oplus_kevent.h
 * Description: For kevent action upload upload to user layer
 * Version   : 1.0
